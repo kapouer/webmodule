@@ -1,34 +1,14 @@
 const debug = require('debug')('@webmodule/bundle');
 
-const postcss = require('postcss');
-const postcssUrl = require('postcss-url');
-const postcssImport = require('postcss-import');
-const postcssFlexBugs = require('postcss-flexbugs-fixes');
-const csso = require('postcss-csso');
-const reporter = require('postcss-reporter');
-const autoprefixer = require('autoprefixer');
-
-const presetEnv = require.resolve('@babel/preset-env');
-const rollup = require('rollup');
-const rollupBabel = require('@rollup/plugin-babel');
-const rollupTerser = require('rollup-plugin-terser');
-const rollupVirtual = require('@rollup/plugin-virtual');
-const rollupResolve = require('@rollup/plugin-node-resolve');
-const rollupCommonjs = require('@rollup/plugin-commonjs');
-const rollupAnalyze = require('rollup-plugin-analyzer');
 const Resolver = require('@webmodule/resolve');
 
 const JSDOM = require('jsdom').JSDOM;
-const mkdirp = require('mkdirp');
-const MaxWorkers = Math.min(require('os').cpus().length - 1, 4);
 
-const fs = require('fs').promises;
-const Path = require('upath');
-const got = require('got');
+const fs = require('node:fs/promises');
 
-const minimatch = require("minimatch");
+const Path = require('node:path');
 
-const coreJsRe = /\/core-js\//;
+const bundler = require('postinstall-esbuild');
 
 module.exports = bundle;
 
@@ -46,33 +26,6 @@ async function bundle(path, opts) {
 	if (opts.minify !== undefined) minify = opts.minify;
 	opts.minify = minify;
 	if (!opts.root) opts.root = Path.dirname(path);
-
-	const babelPresetOpts = {
-		modules: false,
-		// spec: true,
-		useBuiltIns: 'usage',
-		corejs: '3.19'
-	};
-
-	const babelOpts = {
-		presets: [
-			[presetEnv, babelPresetOpts]
-		],
-		plugins: [
-			"@babel/plugin-proposal-class-properties",
-			"@babel/plugin-proposal-optional-chaining"
-		],
-		compact: false,
-		babelHelpers: 'bundled',
-		comments: minify === false,
-		filter(id) {
-			if (id.startsWith('\0') && !id.startsWith('\0virtual:')) return false;
-			if (coreJsRe.test(Path.toUnix(id))) return false;
-			return true;
-		}
-	};
-
-	opts.babel = babelOpts;
 
 	const dom = await loadDom(path, opts.root);
 	opts.basepath = dom.basepath;
@@ -135,7 +88,6 @@ async function processDocument(doc, opts, data) {
 	if (!data.js) data.js = "";
 	if (!data.css) data.css = "";
 	await processCustom(doc, opts, data);
-	await prepareImports(doc, opts, data);
 
 
 	let obj = await processScripts(doc, opts, data);
@@ -151,71 +103,6 @@ async function processDocument(doc, opts, data) {
 
 async function processCustom(doc, opts, data) {
 	if (opts.custom) return opts.custom(doc, opts, data);
-}
-
-async function prepareImports(doc, opts, data) {
-	const docRoot = Path.dirname(opts.basepath);
-
-	const allLinks = Array.from(doc.querySelectorAll('link[href][rel="import"]'));
-
-	prependToPivot(allLinks, opts.prepend, 'link', 'href', 'html', { rel: "import" });
-	appendToPivot(allLinks, opts.append, 'link', 'href', 'html', { rel: "import" });
-
-	// the order is not important
-	return Promise.all(allLinks.map(async (node) => {
-		let src = node.getAttribute('href');
-		if (filterByName(src, opts.ignore)) {
-			return;
-		}
-		if (filterByName(src, opts.exclude)) {
-			node.remove();
-			return;
-		}
-		data.imports.push(src);
-
-		if (src.startsWith('/')) {
-			src = Path.join(opts.root, src);
-		} else {
-			src = Path.join(docRoot, src);
-		}
-
-		const idom = await loadDom(src, Path.dirname(src));
-		const iopts = Object.assign({}, opts, {
-			append: [],
-			prepend: [],
-			exclude: [],
-			ignore: [],
-			css: null,
-			js: null,
-			basepath: idom.basepath
-		});
-		const idoc = idom.window.document;
-		const idata = await processDocument(idoc, iopts, {});
-		// make sure no variable can leak to SCRIPT
-		let iscript = function (html) {
-			if (!document._currentScript) document._currentScript = {};
-			document._currentScript.parentOwner = (document.currentScript || document._currentScript).ownerDocument;
-			document._currentScript.ownerDocument = document.implementation.createHTMLDocument("");
-			try {
-				document._currentScript.ownerDocument.documentElement.innerHTML = html;
-			} catch (ex) {
-				// IE < 10 fallback
-				document._currentScript.ownerDocument.body.innerHTML = html;
-			}
-			// eslint-disable-next-line no-undef
-			SCRIPT;
-			document._currentScript.ownerDocument = document._currentScript.parentOwner;
-			delete document._currentScript.parentOwner;
-		}.toString().replace("SCRIPT;", () => idata.js);
-		iscript = '\n(' + iscript + ')(' +
-			JSON.stringify(idoc.documentElement.innerHTML)
-			+ ');';
-		createSibling(node, 'before', 'script').textContent = iscript;
-		if (idata.css) {
-			createSibling(node, 'before', 'style').textContent = idata.css;
-		}
-		removeNodeAndSpaceBefore(node);
-	}));
 }
 
 async function processScripts(doc, opts, data) {
