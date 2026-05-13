@@ -1,0 +1,6 @@
+packages:
+  - bundle
+  - resolve
+  - serve
+allowBuilds:
+  core-js: set this to true or false
