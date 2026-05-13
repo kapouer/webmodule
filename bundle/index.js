@@ -1,5 +1,4 @@
 const debug = require('debug')('@webmodule/bundle');
-
 const postcss = require('postcss');
 const postcssUrl = require('postcss-url');
 const postcssImport = require('postcss-import');
@@ -24,11 +23,6 @@ const MaxWorkers = Math.min(require('os').cpus().length - 1, 4);
 
 const fs = require('fs').promises;
 const Path = require('upath');
-
-async function got(...args) {
-	const { got } = await import("got");
-	return got(...args);
-}
 
 const { minimatch } = require("minimatch");
 
@@ -427,8 +421,8 @@ async function processStylesheets(doc, opts, data) {
 				return `@import url("${dst}");`;
 			} else if (filterRemotes(dst, opts.remotes) == 1) {
 				data.stylesheets.push(src);
-				const response = await got(dst);
-				return response.body.toString();
+				   const response = await fetch(dst);
+				   return await response.text();
 			}
 		} else if (node.textContent) {
 			if (opts.ignore.indexOf('.') >= 0) {

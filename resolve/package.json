@@ -1,6 +1,6 @@
 {
   "name": "@webmodule/resolve",
-  "version": "5.7.0",
+  "version": "6.0.0",
   "description": "Resolve path of es, browser, node modules",
   "main": "index.js",
   "scripts": {
@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/kapouer/webmodule#readme",
   "dependencies": {
-    "upath": "^2.0.1"
+    "upath": "^3.0.7"
   },
   "eslintConfig": {
     "extends": "@kapouer/eslint-config",
@@ -31,6 +31,6 @@
     }
   },
   "devDependencies": {
-    "@kapouer/eslint-config": "^1.6.1"
+    "@kapouer/eslint-config": "^2.2.2"
   }
 }
