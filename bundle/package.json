@@ -1,6 +1,6 @@
 {
   "name": "@webmodule/bundle",
-  "version": "5.8.2",
+  "version": "6.0.0",
   "description": "Bundle and transform javascript files, stylesheets, html imports and update DOM document",
   "main": "index.js",
   "scripts": {
