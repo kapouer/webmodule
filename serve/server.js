@@ -100,6 +100,7 @@ class ModuleServer {
 	}
 
 	resolveImports(basePath, code) {
+		basePath = fs.realpathSync(basePath);
 		const patches = [];
 		let ast;
 		try {
