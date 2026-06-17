@@ -125,8 +125,8 @@ class ModuleServer {
 		};
 
 		walk.simple(ast, {
-			ExportAllDeclaration: () => isModule = true,
-			ExportDefaultDeclaration: () => isModule = true,
+			ExportAllDeclaration: patchSrc,
+			ExportDefaultDeclaration: patchSrc,
 			ExportNamedDeclaration: patchSrc,
 			ImportDeclaration: patchSrc,
 			ImportExpression: node => {
