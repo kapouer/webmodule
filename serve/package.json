@@ -21,19 +21,19 @@
   "homepage": "https://github.com/kapouer/webmodule#readme",
   "dependencies": {
     "@webmodule/resolve": "^6.0.0",
-    "acorn": "^8.16.0",
+    "acorn": "^8.17.0",
     "acorn-class-fields": "^1.0.0",
     "acorn-private-methods": "^1.0.0",
     "acorn-walk": "^8.3.5",
     "dashdash": "^2.0.0",
     "express": "^5.2.1",
     "http-errors": "^2.0.1",
-    "resolve": "^1.22.1",
+    "resolve": "^1.22.12",
     "upath": "^3.0.7"
   },
   "devDependencies": {
     "@kapouer/eslint-config": "^2.2.2",
-    "mocha": "^11.7.5"
+    "mocha": "^11.7.6"
   },
   "eslintConfig": {
     "extends": "@kapouer/eslint-config",
