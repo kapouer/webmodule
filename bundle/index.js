@@ -147,7 +147,7 @@ async function processDocument(doc, opts, data) {
 	return data;
 }
 
-async function processCustom(doc, opts, data) {
+function processCustom(doc, opts, data) {
 	if (opts.custom) return opts.custom(doc, opts, data);
 }
 
@@ -267,7 +267,7 @@ async function processScripts(doc, opts, data) {
 				dst = src.startsWith('/')
 					? Path.join(opts.root, src)
 					: Path.join(docRoot, src);
-				sources.push((async () => {
+				if (modulesResolver) sources.push((async () => {
 					const level = Path.relative(docRoot, opts.root);
 					dst = await modulesResolver.resolveId(
 						Path.join(level, src), docRoot
@@ -305,6 +305,7 @@ async function processScripts(doc, opts, data) {
 		}
 		removeNodeAndSpaceBefore(node);
 	});
+
 	const entries = await Promise.all(sources);
 	if (entries.length === 0) return {};
 	const virtuals = {};
