@@ -44,7 +44,7 @@
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-url": "^8.0.2",
     "@rollup/plugin-virtual": "^3.0.2",
-    "@webmodule/resolve": "^6.0.0",
+    "@webmodule/resolve": "^6.1.0",
     "autoprefixer": "^10.5.0",
     "core-js": "^3.49.0",
     "cssnano": "^8.0.2",
