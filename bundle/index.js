@@ -267,33 +267,21 @@ async function processScripts(doc, opts, data) {
 				dst = src.startsWith('/')
 					? Path.join(opts.root, src)
 					: Path.join(docRoot, src);
-				if (modulesResolver) {
-					sources.push((async () => {
-						const level = Path.relative(docRoot, opts.root);
-						dst = await modulesResolver.resolveId(
-							Path.join(level, src), docRoot
-						) || dst;
-						if (esm) {
-							return { src, dst };
-						} else {
-							return {
-								src,
-								dst,
-								blob: wrapWindow(await readFile(dst))
-							};
-						}
-					})());
-				} else if (esm) {
-					sources.push({ src, dst });
-				} else {
-					sources.push((async () => {
+				sources.push((async () => {
+					const level = Path.relative(docRoot, opts.root);
+					dst = await modulesResolver.resolveId(
+						Path.join(level, src), docRoot
+					) || dst;
+					if (esm) {
+						return { src, dst };
+					} else {
 						return {
 							src,
 							dst,
 							blob: wrapWindow(await readFile(dst))
 						};
-					})());
-				}
+					}
+				})());
 			}
 		} else if (node.textContent) {
 			if (opts.ignore.indexOf('.') >= 0) {
