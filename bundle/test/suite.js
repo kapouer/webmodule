@@ -42,6 +42,17 @@ describe("test suite", function () {
 		data.should.have.property('html');
 	});
 
+	it('should concat js for inline scripts', async () => {
+		const data = await bundle('test/fixtures/inline.html', {
+			exclude: [],
+			concatenate: true
+		});
+		data.should.have.property('js');
+		data.js.should.containEql("toto");
+		data.should.have.property('html');
+		data.html.should.not.containEql("toto");
+	});
+
 	it('should work without anything to do', async () => {
 		const data = await bundle('test/fixtures/none.html', {
 			exclude: []

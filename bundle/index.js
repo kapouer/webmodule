@@ -354,6 +354,7 @@ async function processScripts(doc, opts, data) {
 	const result = await rollup.rollup({
 		input: bundleName,
 		context: 'window',
+		treeshake: false,
 		plugins
 	});
 	for (let i = 1; i < result.watchFiles.length; i++) {
