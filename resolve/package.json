@@ -25,7 +25,7 @@
     "upath": "^3.0.7"
   },
   "devDependencies": {
-    "@kapouer/eslint-config": "^4.0.0",
+    "@kapouer/eslint-config": "^4.0.1",
     "eslint": "^10.5.0"
   }
 }

@@ -2,3 +2,4 @@ allowBuilds:
   '@kapouer/eslint-config': false
 minimumReleaseAgeExclude:
   - '@kapouer/eslint-config@4.0.0'
+  - '@kapouer/eslint-config@4.0.1'

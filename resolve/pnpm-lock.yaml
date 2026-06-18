@@ -13,8 +13,8 @@ importers:
         version: 3.0.7
     devDependencies:
       '@kapouer/eslint-config':
-        specifier: ^4.0.0
-        version: 4.0.0(eslint@10.5.0)
+        specifier: ^4.0.1
+        version: 4.0.1(eslint@10.5.0)
       eslint:
         specifier: ^10.5.0
         version: 10.5.0
@@ -80,8 +80,8 @@ packages:
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
 
-  '@kapouer/eslint-config@4.0.0':
-    resolution: {integrity: sha512-vlpND/rO6CSQH7K2p+EXZiwG+Hd6106+v8LkYPyUNBqxP7D70oshlF6ZCU9emUqBDEGrjdhbiChCPMqg3esYMw==}
+  '@kapouer/eslint-config@4.0.1':
+    resolution: {integrity: sha512-7MhLIBKs5erCJQMgD/zdHj23uL2OCDC0tYM1E1/M7dxWg9eJkD+WlyhnVQ+DBrwRIV7/uOfwJmi0WLomvcEChg==}
     peerDependencies:
       eslint: ^10.5.0
 
@@ -495,7 +495,7 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@kapouer/eslint-config@4.0.0(eslint@10.5.0)':
+  '@kapouer/eslint-config@4.0.1(eslint@10.5.0)':
     dependencies:
       '@eslint/js': 10.0.1(eslint@10.5.0)
       '@kapouer/eslint-plugin-no-return-in-loop': 1.0.0
