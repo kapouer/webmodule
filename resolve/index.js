@@ -1,4 +1,4 @@
-const { readFile } = require('fs').promises;
+const { readFile } = require('node:fs/promises');
 const upath = require('upath');
 const PKGKEY = "@webmodule/resolve";
 
@@ -28,14 +28,14 @@ module.exports = class Resolver {
 		if (!paths) return ret;
 		const relKey = relUrl ? "./" + relUrl : ".";
 		let relPath = paths[relKey] || relKey;
-		if (relPath == ".") relPath = "./index"; // last chance
+		if (relPath === ".") relPath = "./index"; // last chance
 		if (!upath.extname(relPath)) {
 			relPath += `.${type}`;
 		}
 
 		const newUrl = upath.join(moduleName, relPath);
 		ret.path = upath.join(dir, relPath);
-		if (url != newUrl) ret.url = this.prefix + newUrl;
+		if (url !== newUrl) ret.url = this.prefix + newUrl;
 		return ret;
 	}
 };
@@ -44,7 +44,7 @@ function urlParts(url) {
 	const list = url.split('/');
 	if (!list.length) return [null, null];
 	let name = list.shift();
-	if (name.charAt(0) == "@") name += "/" + list.shift();
+	if (name.charAt(0) === "@") name += "/" + list.shift();
 	return [name, list.join('/')];
 }
 
@@ -79,7 +79,7 @@ async function pkgExports(dir, modules) {
 	if (pkg.exports) {
 		for (const key in pkg.exports) {
 			const exp = pkg.exports[key];
-			if (key == "import") {
+			if (key === "import") {
 				paths.js['.'] = exp;
 			} else if (key.startsWith(".")) {
 				if (typeof exp == "object" && exp.import) {
