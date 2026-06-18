@@ -323,7 +323,7 @@ async function copyOver(from, to) {
 	await fs.writeFile(to, data);
 }
 
-async function runDom(htmlPath, data) {
+function runDom(htmlPath, data) {
 	const virtualConsole = new jsdom.VirtualConsole();
 	virtualConsole.on('jsdomError', (err) => {
 		throw err;
