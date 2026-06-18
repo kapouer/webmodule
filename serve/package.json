@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/kapouer/webmodule#readme",
   "dependencies": {
-    "@webmodule/resolve": "^6.0.0",
+    "@webmodule/resolve": "^6.1.0",
     "acorn": "^8.17.0",
     "acorn-class-fields": "^1.0.0",
     "acorn-private-methods": "^1.0.0",
