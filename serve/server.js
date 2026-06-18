@@ -1,7 +1,8 @@
 const { dirname, relative, join, resolve, normalize } = require("upath");
-const fs = require("fs");
-const nodeResolve = require("resolve");
-const crypto = require("crypto");
+const fs = require("node:fs/promises");
+const { promisify } = require("node:util");
+const nodeResolve = promisify(require("resolve"));
+const crypto = require("node:crypto");
 const { Parser } = require("acorn");
 const MyParser = Parser
 	.extend(require('acorn-private-methods'))
@@ -28,7 +29,7 @@ class ModuleServer {
 		this.cache = Object.create(null);
 	}
 
-	handleRequest(req, res) {
+	async handleRequest(req, res) {
 		const send = (status, text, headers) => {
 			const hds = {};
 			if (!headers || typeof headers == "string") {
@@ -40,7 +41,7 @@ class ModuleServer {
 			res.end(text);
 		};
 		const url = new URL(req.baseUrl + req.url, "http://localhost");
-		if (url.pathname.startsWith(this.prefix) == false) return false;
+		if (url.pathname.startsWith(this.prefix) === false) return false;
 		// Modules paths in URLs represent "up one directory" as "__".
 		// Convert them to ".." for filesystem path resolution.
 		const relUrl = undash(url.pathname.substring(this.prefix.length));
@@ -50,10 +51,10 @@ class ModuleServer {
 				send(403, "Access denied");
 				return true;
 			}
-			const fullPath = resolve(this.root, relUrl);
+			const fullPath = await fs.realpath(resolve(this.root, relUrl));
 			let code;
 			try {
-				code = fs.readFileSync(fullPath, "utf8");
+				code = await fs.readFile(fullPath, "utf8");
 			} catch {
 				send(404, "Not found");
 				return true;
@@ -85,28 +86,24 @@ class ModuleServer {
 	// Resolve a module path to a relative filepath where
 	// the module's file exists.
 	resolveModule(basePath, path) {
-		let resolved;
-		try { resolved = this.resolveMod(path, basePath); }
-		catch (e) { return { error: e.toString() }; }
-
+		let resolved = this.resolveMod(path, basePath);
 		// Builtin modules resolve to strings like "fs". Try again with
 		// slash which makes it possible to locally install an equivalent.
-		if (resolved.indexOf("/") == -1) {
-			try { resolved = this.resolveMod(join(path, "/"), basePath); }
-			catch (e) { return { error: e.toString() }; }
+		if (resolved.indexOf("/") === -1) {
+			resolved = this.resolveMod(join(path, "/"), basePath);
 		}
 
-		return { path: join("/", this.prefix, relative(this.root, resolved)) };
+		return join("/", this.prefix, relative(this.root, resolved));
 	}
 
 	resolveImports(basePath, code) {
-		basePath = fs.realpathSync(basePath);
 		const patches = [];
 		let ast;
 		try {
 			ast = MyParser.parse(code, { sourceType: "module", ecmaVersion: "latest" });
 		} catch (err) {
-			return { error: err.toString() + " in " + basePath };
+			err.message += " in " + basePath;
+			throw err;
 		}
 		let isModule = false;
 		let isCommonjs = false;
@@ -114,14 +111,17 @@ class ModuleServer {
 		const patchSrc = (node) => {
 			isModule = true;
 			if (!node.source) return;
-			const orig = (0, eval)(code.slice(node.source.start, node.source.end));
-			const { error, path } = this.resolveModule(dirname(basePath), orig);
-			if (error) return { error };
-			patches.push({
-				from: node.source.start,
-				to: node.source.end,
-				text: JSON.stringify(dash(path))
-			});
+			try {
+				const orig = JSON.parse(code.slice(node.source.start, node.source.end));
+				const path = this.resolveModule(dirname(basePath), orig);
+				patches.push({
+					from: node.source.start,
+					to: node.source.end,
+					text: JSON.stringify(dash(path))
+				});
+			} catch (error) {
+				return { error };
+			}
 		};
 
 		walk.simple(ast, {
@@ -131,22 +131,24 @@ class ModuleServer {
 			ImportDeclaration: patchSrc,
 			ImportExpression: node => {
 				isModule = true;
-				if (node.source.type == "Literal") {
-					const { error, path } = this.resolveModule(
-						dirname(basePath), node.source.value
-					);
-					if (!error) {
+				if (node.source.type === "Literal") {
+					try {
+						const path = this.resolveModule(
+							dirname(basePath), node.source.value
+						);
 						patches.push({
 							from: node.source.start,
 							to: node.source.end,
 							text: JSON.stringify(dash(path))
 						});
+					} catch {
+						// pass
 					}
 				}
 			},
 			AssignmentExpression: node => {
 				const names = getAssignmentNames(node.left);
-				if (names[0] == "module" && names[1] == "exports" || names[0] == "exports") {
+				if (names[0] === "module" && names[1] === "exports" || names[0] === "exports") {
 					isCommonjs = true;
 				}
 			},
@@ -155,7 +157,7 @@ class ModuleServer {
 				const reqs = [];
 				let noreqs = 0;
 				for (const decl of node.declarations) {
-					if (!decl.init || decl.init.type != "CallExpression" || !decl.init.callee || decl.init.callee.name != "require") {
+					if (!decl.init || decl.init.type !== "CallExpression" || !decl.init.callee || decl.init.callee.name !== "require") {
 						noreqs++;
 						continue;
 					}
@@ -163,15 +165,18 @@ class ModuleServer {
 					if (!args) {
 						continue; // ? anyway we don't wan't to crash on this ?
 					}
-					const { error, path } = this.resolveModule(
-						dirname(basePath),
-						args.value
-					);
-					if (error) return { error };
-					const str = `import ${decl.id.name} from ${JSON.stringify(dash(path))};`;
-					reqs.push(str);
+					try {
+						const path = this.resolveModule(
+							dirname(basePath),
+							args.value
+						);
+						const str = `import ${decl.id.name} from ${JSON.stringify(dash(path))};`;
+						reqs.push(str);
+					} catch (error) {
+						return { error };
+					}
 				}
-				if (reqs.length == 0) return;
+				if (reqs.length === 0) return;
 				if (noreqs > 0) {
 					return {
 						error: "moduleserver does not support yet rewriting mixed variable/require declarations"
@@ -182,11 +187,11 @@ class ModuleServer {
 					to: node.end,
 					text: ""
 				});
-				reqs.forEach(req => patches.push({
+				for (const req of reqs) patches.push({
 					from: node.start,
 					to: node.start,
 					text: req
-				}));
+				});
 			}
 		}, {
 			...walk.base,
@@ -198,12 +203,12 @@ class ModuleServer {
 				from: ast.start,
 				to: ast.start,
 				text: 'const module = {exports: {}};let exports = module.exports'
-					+ (code.charAt(ast.start) == ";" ? "" : ";")
+					+ (code.charAt(ast.start) === ";" ? "" : ";")
 			});
 			patches.push({
 				from: ast.end,
 				to: ast.end,
-				text: (code.charAt(ast.end - 1) == ";" ? "" : ";")
+				text: (code.charAt(ast.end - 1) === ";" ? "" : ";")
 					+ 'export default module.exports'
 			});
 		}
@@ -224,8 +229,8 @@ class ModuleServer {
 		}
 		return pkg;
 	}
-	resolveMod(path, base) {
-		return normalize(nodeResolve.sync(path, {
+	async resolveMod(path, base) {
+		return normalize(await nodeResolve(path, {
 			basedir: base,
 			packageFilter: (pkg) => this.packageFilter(pkg)
 		}));
@@ -250,11 +255,11 @@ function countParentRefs(path) {
 }
 
 function getAssignmentNames(left, names = []) {
-	if (left.type == "Identifier") {
+	if (left.type === "Identifier") {
 		names.push(left.name);
-	} else if (left.type == "MemberExpression") {
+	} else if (left.type === "MemberExpression") {
 		getAssignmentNames(left.object, names);
-		if (left.property && left.property.type == "Identifier" && left.property.name) {
+		if (left.property && left.property.type === "Identifier" && left.property.name) {
 			names.push(left.property.name);
 		}
 	}

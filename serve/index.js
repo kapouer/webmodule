@@ -17,20 +17,20 @@ module.exports = function ({ prefix = "/", root = ".", modules = {} } = {}) {
 
 	return async function serveModule(req, res, next) {
 		const reqPath = req.baseUrl + req.path;
-		if (req.method != "GET" || !reqPath.startsWith(reqPrefix)) {
+		if (req.method !== "GET" || !reqPath.startsWith(reqPrefix)) {
 			return next('route');
 		}
-		if (req.app.settings.env != "development") {
+		if (req.app.settings.env !== "development") {
 			console.warn("This route is forbidden when not in development", reqPrefix);
 			return next(new HttpError.NotFound());
 		}
 
 		const ext = path.extname(reqPath).substring(1);
 
-		const ref = req.headers['referer'] || "";
+		const ref = req.headers.referer || "";
 		if (ext && /^m?js$/.test(ext) && /\.m?js$/.test(ref)) {
 			try {
-				if (!moduleServer.handleRequest(req, res)) res.sendStatus(404);
+				if (!await moduleServer.handleRequest(req, res)) res.sendStatus(404);
 			} catch (err) {
 				next(err);
 			}
@@ -44,7 +44,7 @@ module.exports = function ({ prefix = "/", root = ".", modules = {} } = {}) {
 			res.vary('Accept');
 
 			if (url) {
-				if (accepts == "css") {
+				if (accepts === "css") {
 					// else browser warns about content-type
 					res.location(url);
 					res.status(302);
@@ -54,6 +54,7 @@ module.exports = function ({ prefix = "/", root = ".", modules = {} } = {}) {
 					res.redirect(url);
 				}
 			} else {
+				// eslint-disable-next-line require-atomic-updates
 				req.url = reqPath;
 				serveHandler(req, res, next);
 			}
