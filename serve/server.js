@@ -115,7 +115,7 @@ class ModuleServer {
 			patches.push({
 				from: node.source.start,
 				to: node.source.end,
-				orig: code.slice(node.source.start, node.source.end)
+				orig: node.source.value
 			});
 		};
 
@@ -197,7 +197,8 @@ class ModuleServer {
 		}
 		const resolveds = await Promise.all(patches.map(async p => {
 			if (p.text !== undefined || p.orig === undefined) return p;
-			const path = await this.resolveModule(dir, p.orig);
+			const val = p.orig;
+			const path = await this.resolveModule(dir, val);
 			const text = JSON.stringify(dash(path));
 			p.text = p.template ? p.template.replace('%', text) : text;
 			return p;
