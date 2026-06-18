@@ -62,8 +62,7 @@ class ModuleServer {
 			if (/\.map$/.test(fullPath)) {
 				cached = this.cache[relUrl] = new Cached(code, "application/json");
 			} else {
-				const { code: resolvedCode, error } = this.resolveImports(fullPath, code);
-				if (error) throw error;
+				const resolvedCode = await this.resolveImports(fullPath, code);
 				cached = this.cache[relUrl] = new Cached(resolvedCode, "application/javascript");
 			}
 			// Drop cache entry when the file changes.
@@ -85,18 +84,18 @@ class ModuleServer {
 
 	// Resolve a module path to a relative filepath where
 	// the module's file exists.
-	resolveModule(basePath, path) {
-		let resolved = this.resolveMod(path, basePath);
+	async resolveModule(basePath, path) {
+		let resolved = await this.resolveMod(path, basePath);
 		// Builtin modules resolve to strings like "fs". Try again with
 		// slash which makes it possible to locally install an equivalent.
 		if (resolved.indexOf("/") === -1) {
-			resolved = this.resolveMod(join(path, "/"), basePath);
+			resolved = await this.resolveMod(join(path, "/"), basePath);
 		}
 
 		return join("/", this.prefix, relative(this.root, resolved));
 	}
 
-	resolveImports(basePath, code) {
+	async resolveImports(basePath, code) {
 		const patches = [];
 		let ast;
 		try {
@@ -108,20 +107,16 @@ class ModuleServer {
 		let isModule = false;
 		let isCommonjs = false;
 
-		const patchSrc = (node) => {
+		const dir = dirname(basePath);
+
+		const patchSrc = node => {
 			isModule = true;
 			if (!node.source) return;
-			try {
-				const orig = JSON.parse(code.slice(node.source.start, node.source.end));
-				const path = this.resolveModule(dirname(basePath), orig);
-				patches.push({
-					from: node.source.start,
-					to: node.source.end,
-					text: JSON.stringify(dash(path))
-				});
-			} catch (error) {
-				return { error };
-			}
+			patches.push({
+				from: node.source.start,
+				to: node.source.end,
+				orig: code.slice(node.source.start, node.source.end)
+			});
 		};
 
 		walk.simple(ast, {
@@ -132,18 +127,11 @@ class ModuleServer {
 			ImportExpression: node => {
 				isModule = true;
 				if (node.source.type === "Literal") {
-					try {
-						const path = this.resolveModule(
-							dirname(basePath), node.source.value
-						);
-						patches.push({
-							from: node.source.start,
-							to: node.source.end,
-							text: JSON.stringify(dash(path))
-						});
-					} catch {
-						// pass
-					}
+					patches.push({
+						from: node.source.start,
+						to: node.source.end,
+						orig: node.source.value
+					});
 				}
 			},
 			AssignmentExpression: node => {
@@ -165,16 +153,10 @@ class ModuleServer {
 					if (!args) {
 						continue; // ? anyway we don't wan't to crash on this ?
 					}
-					try {
-						const path = this.resolveModule(
-							dirname(basePath),
-							args.value
-						);
-						const str = `import ${decl.id.name} from ${JSON.stringify(dash(path))};`;
-						reqs.push(str);
-					} catch (error) {
-						return { error };
-					}
+					reqs.push({
+						orig: args.value,
+						template: `import ${decl.id.name} from %`
+					});
 				}
 				if (reqs.length === 0) return;
 				if (noreqs > 0) {
@@ -190,7 +172,8 @@ class ModuleServer {
 				for (const req of reqs) patches.push({
 					from: node.start,
 					to: node.start,
-					text: req
+					orig: req.orig,
+					template: req.template
 				});
 			}
 		}, {
@@ -212,10 +195,17 @@ class ModuleServer {
 					+ 'export default module.exports'
 			});
 		}
-		for (const patch of patches.sort((a, b) => b.from - a.from)) {
+		const resolveds = await Promise.all(patches.map(async p => {
+			if (p.text !== undefined || p.orig === undefined) return p;
+			const path = await this.resolveModule(dir, p.orig);
+			const text = JSON.stringify(dash(path));
+			p.text = p.template ? p.template.replace('%', text) : text;
+			return p;
+		}));
+		for (const patch of resolveds.sort((a, b) => b.from - a.from)) {
 			code = code.slice(0, patch.from) + patch.text + code.slice(patch.to);
 		}
-		return { code };
+		return code;
 	}
 
 	packageFilter(pkg) {
@@ -225,6 +215,8 @@ class ModuleServer {
 		} else if (pkg.module) {
 			pkg.main = pkg.module;
 		} else if (pkg['jsnext:main']) {
+			pkg.main = pkg['jsnext:main'];
+		} else if (pkg.jsnext) {
 			pkg.main = pkg.jsnext;
 		}
 		return pkg;
