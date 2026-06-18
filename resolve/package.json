@@ -1,6 +1,6 @@
 {
   "name": "@webmodule/resolve",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "description": "Resolve path of es, browser, node modules",
   "main": "index.js",
   "scripts": {
