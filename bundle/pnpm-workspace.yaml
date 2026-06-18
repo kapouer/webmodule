@@ -1,3 +1,5 @@
 allowBuilds:
   '@kapouer/eslint-config': false
   core-js: false
+minimumReleaseAgeExclude:
+  - '@kapouer/eslint-config@4.0.1'
