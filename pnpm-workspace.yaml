@@ -1,6 +1,0 @@
-packages:
-  - bundle
-  - resolve
-  - serve
-allowBuilds:
-  core-js: false
