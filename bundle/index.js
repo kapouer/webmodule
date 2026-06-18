@@ -1,3 +1,4 @@
+/* eslint-disable no-underscore-dangle */
 const debug = require('debug')('@webmodule/bundle');
 const postcss = require('postcss');
 const postcssUrl = require('postcss-url');
@@ -21,7 +22,7 @@ const Resolver = require('@webmodule/resolve');
 const JSDOM = require('jsdom').JSDOM;
 const MaxWorkers = Math.min(require('os').cpus().length - 1, 4);
 
-const fs = require('fs').promises;
+const fs = require('node:fs/promises');
 const Path = require('upath');
 
 const { minimatch } = require("minimatch");
@@ -70,6 +71,7 @@ async function bundle(path, opts) {
 	opts.babel = babelOpts;
 
 	const dom = await loadDom(path, opts.root);
+	// eslint-disable-next-line require-atomic-updates
 	opts.basepath = dom.basepath;
 	const data = {};
 	const doc = dom.window.document;
@@ -78,42 +80,43 @@ async function bundle(path, opts) {
 		if (data.css) data.js += '\n(' + function () {
 			const sheet = document.createElement('style');
 			sheet.type = 'text/css';
-			// eslint-disable-next-line no-undef
 			sheet.textContent = CSS;
 			document.head.appendChild(sheet);
 		}.toString().replace('CSS', () => JSON.stringify(data.css)) + ')();';
 	} else {
 		const cssPath = getRelativePath(opts.basepath, opts.css);
 		await writeFile(cssPath, data.css);
-		// eslint-disable-next-line no-console
 		if (opts.cli) console.warn(opts.css);
-		// if (data.cssmap) {
-		// 	const cssMapPath = cssPath + '.map';
-		// 	await writeFile(cssMapPath, data.cssmap);
-		// 	// eslint-disable-next-line no-console
-		// 	if (opts.cli) console.warn(opts.css + ".map");
-		// }
+		/*
+		if (data.cssmap) {
+			const cssMapPath = cssPath + '.map';
+			await writeFile(cssMapPath, data.cssmap);
+			// eslint-disable-next-line no-console
+			if (opts.cli) console.warn(opts.css + ".map");
+		}
+		*/
 	}
 	const html = dom.serialize();
 	if (opts.html) {
 		const htmlPath = getRelativePath(opts.basepath, opts.html);
 		await writeFile(htmlPath, html);
-		// eslint-disable-next-line no-console
 		if (opts.cli) console.warn(opts.html);
 	} else {
+		// eslint-disable-next-line require-atomic-updates
 		data.html = html;
 	}
 	if (opts.js) {
 		const jsPath = getRelativePath(opts.basepath, opts.js);
 		await writeFile(jsPath, data.js);
-		// eslint-disable-next-line no-console
 		if (opts.cli) console.warn(opts.js);
-		// if (data.jsmap) {
-		// 	const jsMapPath = jsPath + '.map';
-		// 	await writeFile(jsMapPath, data.jsmap);
-		// 	// eslint-disable-next-line no-console
-		// 	if (opts.cli) console.warn(opts.js + ".map");
-		// }
+		/*
+		if (data.jsmap) {
+			const jsMapPath = jsPath + '.map';
+			await writeFile(jsMapPath, data.jsmap);
+			// eslint-disable-next-line no-console
+			if (opts.cli) console.warn(opts.js + ".map");
+		}
+		*/
 	}
 	return data;
 }
@@ -193,11 +196,11 @@ async function prepareImports(doc, opts, data) {
 			document._currentScript.ownerDocument = document.implementation.createHTMLDocument("");
 			try {
 				document._currentScript.ownerDocument.documentElement.innerHTML = html;
-			} catch (ex) {
+			} catch {
 				// IE < 10 fallback
 				document._currentScript.ownerDocument.body.innerHTML = html;
 			}
-			// eslint-disable-next-line no-undef
+			// eslint-disable-next-line no-undef, @typescript-eslint/no-unused-expressions
 			SCRIPT;
 			document._currentScript.ownerDocument = document._currentScript.parentOwner;
 			delete document._currentScript.parentOwner;
@@ -221,36 +224,33 @@ async function processScripts(doc, opts, data) {
 	}
 	const allScripts = Array.from(doc.querySelectorAll('script')).filter((node) => {
 		const src = node.getAttribute('src');
-		if (src && filterRemotes(src, opts.remotes) == 0) return false;
-		return !node.type || node.type == "text/javascript" || node.type == "module";
+		if (src && filterRemotes(src, opts.remotes) === 0) return false;
+		return !node.type || node.type === "text/javascript" || node.type === "module";
 	});
 	prependToPivot(allScripts, opts.prepend, 'script', 'src', 'js');
 	const pivot = appendToPivot(allScripts, opts.append, 'script', 'src', 'js');
 
 	const modulesResolver = resolverPlugin(opts, "resolveId", "js");
-	let defer = false;
+	const defer = allScripts.some(a => a.type === "module" || a.defer);
 
 	allScripts.sort((a, b) => {
-		const am = a.type == "module";
-		const bm = b.type == "module";
+		const am = a.type === "module";
+		const bm = b.type === "module";
 		const ar = a.defer;
 		const br = b.defer;
-		if (am || bm || ar || br) defer = true;
 		if (am && bm) return 0;
-		if (!am && bm) return -1;
-		if (am && !bm) return 1;
-		if (!am && !bm) {
-			if (ar && br || !ar && !br) return 0;
-			if (!ar && br) return -1;
-			if (ar && !br) return 1;
-		}
+		else if (!am && bm) return -1;
+		else if (am && !bm) return 1;
+		else if (!ar && br) return -1;
+		else if (ar && !br) return 1;
+		else return 0;
 	});
 	if (opts.js && defer) pivot.nextElementSibling.setAttribute('defer', '');
 	const sources = [];
 	allScripts.forEach((node) => {
 		const src = node.getAttribute('src');
 		let dst = src;
-		const esm = node.getAttribute('type') == "module";
+		const esm = node.getAttribute('type') === "module";
 
 		if (src) {
 			if (src.startsWith('//')) {
@@ -263,7 +263,7 @@ async function processScripts(doc, opts, data) {
 				removeNodeAndSpaceBefore(node);
 				return;
 			}
-			if (/^https?:\/\//.test(dst) == false) {
+			if (/^https?:\/\//.test(dst) === false) {
 				dst = src.startsWith('/')
 					? Path.join(opts.root, src)
 					: Path.join(docRoot, src);
@@ -318,7 +318,7 @@ async function processScripts(doc, opts, data) {
 		removeNodeAndSpaceBefore(node);
 	});
 	const entries = await Promise.all(sources);
-	if (entries.length == 0) return {};
+	if (entries.length === 0) return {};
 	const virtuals = {};
 	const bundleStr = entries.map((entry, i) => {
 		const { src, dst, blob } = entry;
@@ -392,7 +392,7 @@ async function processStylesheets(doc, opts, data) {
 
 	const allLinks = Array.from(doc.querySelectorAll('link[href][rel="stylesheet"],style')).filter((node) => {
 		const src = node.getAttribute('href');
-		if (src && filterRemotes(src, opts.remotes) == 0) return false;
+		if (src && filterRemotes(src, opts.remotes) === 0) return false;
 		return true;
 	});
 
@@ -411,7 +411,7 @@ async function processStylesheets(doc, opts, data) {
 			if (filterByName(src, opts.exclude)) {
 				return "";
 			}
-			if (/^https?:\/\//.test(dst) == false) {
+			if (/^https?:\/\//.test(dst) === false) {
 				data.stylesheets.push(src);
 				if (src.startsWith('/')) {
 					dst = Path.relative(docRoot, Path.join(opts.root, src));
@@ -419,10 +419,10 @@ async function processStylesheets(doc, opts, data) {
 					dst = "./" + src;
 				}
 				return `@import url("${dst}");`;
-			} else if (filterRemotes(dst, opts.remotes) == 1) {
+			} else if (filterRemotes(dst, opts.remotes) === 1) {
 				data.stylesheets.push(src);
-				   const response = await fetch(dst);
-				   return await response.text();
+				const response = await fetch(dst);
+				return response.text();
 			}
 		} else if (node.textContent) {
 			if (opts.ignore.indexOf('.') >= 0) {
@@ -488,9 +488,9 @@ async function processStylesheets(doc, opts, data) {
 		from: path,
 		to: path + '.css',
 		map: false,
-		// {
-		// 	inline: false
-		// }
+		/* {
+		 	inline: false
+		} */
 	});
 }
 
@@ -514,16 +514,14 @@ function filterRemotes(src, remotes) {
 	const host = new URL(src, "a://").host;
 	if (!host) return -1;
 	if (!remotes) return 0;
-	if (remotes.some((rem) => {
-		if (host.indexOf(rem) >= 0) return true;
-	})) return 1;
+	if (remotes.some(rem => host.indexOf(rem) >= 0)) return 1;
 	else return 0;
 }
 
 function filterByName(src, list) {
 	if (!list) return;
 	const found = list.some((str) => {
-		if (str == ".") return false;
+		if (str === ".") return false;
 		if (str.indexOf('*') >= 0) return minimatch(src, str);
 		else return src.indexOf(str) >= 0;
 	});
@@ -535,13 +533,13 @@ function filterByExt(list, ext) {
 	if (!list) return [];
 	ext = '.' + ext;
 	return list.filter((src) => {
-		return Path.extname(new URL(src, "a://").pathname) == ext;
+		return Path.extname(new URL(src, "a://").pathname) === ext;
 	});
 }
 
 function removeNodeAndSpaceBefore(node) {
 	let cur = node.previousSibling;
-	while (cur && cur.nodeType == 3 && /^\s*$/.test(cur.nodeValue)) {
+	while (cur && cur.nodeType === 3 && /^\s*$/.test(cur.nodeValue)) {
 		cur.remove();
 		cur = node.previousSibling;
 	}
@@ -551,10 +549,10 @@ function removeNodeAndSpaceBefore(node) {
 function spaceBefore(node) {
 	let str = "";
 	let cur = node.previousSibling, val;
-	while (cur && cur.nodeType == 3) {
+	while (cur && cur.nodeType === 3) {
 		val = cur.nodeValue;
 		let nl = /([\n\r]*[\s]*)/.exec(val);
-		if (nl && nl.length == 2) {
+		if (nl && nl.length === 2) {
 			val = nl[1];
 			nl = true;
 		} else {
@@ -580,7 +578,6 @@ function prependToPivot(scripts, list, tag, att, ext, attrs) {
 	if (!list.length) return;
 	const pivot = scripts[0];
 	if (!pivot) {
-		// eslint-disable-next-line no-console
 		console.error("Missing node to prepend to", list);
 		return;
 	}
@@ -597,7 +594,6 @@ function appendToPivot(scripts, list, tag, att, ext, attrs) {
 	if (!list.length) return;
 	const pivot = scripts.slice(-1)[0];
 	if (!pivot) {
-		// eslint-disable-next-line no-console
 		console.error("Missing node to append to", list);
 		return;
 	}
@@ -654,13 +650,13 @@ function resolverPlugin({ modulesPrefix = "/", modulesRoot = ".", root = "." }, 
 					absRoot,
 					Path.extname(importer) ? Path.dirname(importer) : importer
 				);
-				ignore = importerDir.includes("/node_modules/") || regModules.test(usource) == false;
+				ignore = importerDir.includes("/node_modules/") || regModules.test(usource) === false;
 			}
 			if (ignore) {
 				// let other resolvers work
-				if (type == "js") {
+				if (type === "js") {
 					return null;
-				} else if (type == "css") {
+				} else if (type === "css") {
 					return usource;
 				}
 			}

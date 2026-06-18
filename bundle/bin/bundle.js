@@ -93,9 +93,10 @@ try {
 	opts = {help: true};
 }
 
+// eslint-disable-next-line no-underscore-dangle
 const htmlInputPath = opts._args && opts._args.pop();
 
-if (opts.help || !htmlInputPath || !require('fs').existsSync(htmlInputPath)) {
+if (opts.help || !htmlInputPath || !require('node:fs').existsSync(htmlInputPath)) {
 	const help = parser.help({includeEnv: true}).trimRight();
 	console.info(`usage: webmodule-bundle [opts] <html file path>\n${help}`);
 	process.exit(0);

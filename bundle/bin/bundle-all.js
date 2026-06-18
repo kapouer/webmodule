@@ -1,7 +1,7 @@
 #!/usr/bin/node
 
 const glob = require('glob');
-const Path = require('path');
+const Path = require('node:path');
 
 const bundle = require('..');
 
@@ -67,6 +67,7 @@ try {
 
 const customPlugin = opts.custom && require(opts.custom);
 
+// eslint-disable-next-line no-underscore-dangle
 const globPattern = opts._args && opts._args.pop();
 
 if (opts.help || !globPattern) {
@@ -141,7 +142,7 @@ p.then(() => {
 			html: Path.join(dir, base + '.html'),
 			cli: true
 		};
-		if (dir != opts.bundles) bdOpts.root = opts.public;
+		if (dir !== opts.bundles) bdOpts.root = opts.public;
 		return bundle(file, bdOpts);
 	}));
 }).then((all) => {

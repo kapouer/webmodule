@@ -1,7 +1,8 @@
+/* eslint-disable redos-detector/no-unsafe-regex */
 const should = require('should');
 const jsdom = require('jsdom');
-const Path = require('path');
-const fs = require('fs').promises;
+const Path = require('node:path');
+const fs = require('node:fs/promises');
 
 const browsers = {
 	old: "ie >= 8,chrome >= 40",
@@ -305,7 +306,7 @@ describe("test suite", function () {
 });
 
 async function copyOver(from, to) {
-	try { await fs.unlink(to); } catch(ex) { /* pass */ }
+	try { await fs.unlink(to); } catch { /* pass */ }
 	const data = await fs.readFile(from);
 	await fs.mkdir(Path.dirname(to), { recursive: true });
 	await fs.writeFile(to, data);
