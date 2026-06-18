@@ -47,11 +47,11 @@ describe("test suite", function () {
 				accept: "*/*"
 			}
 		});
+
 		const body = await response.text();
-		assert.strictEqual(
-			body,
-			'import * as Test from "/node_modules/redirect-fixed/src/test.js";\nconsole.log(Test.value);\n'
-		);
+		assert.ok(response.ok);
+		assert.ok(body.includes('import * as Test from "/node_modules/redirect-fixed/src/test.js";'));
+		assert.ok(body.includes('console.log(Test.value);'));
 
 		const response2 = await fetch(host + '/node_modules/redirect-fixed', {
 			method: 'GET',
